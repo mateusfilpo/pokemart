@@ -36,7 +36,7 @@ export class ItemsPage extends BasePage {
             if (addBtn) {
                 e.preventDefault(); 
                 e.stopPropagation();
-                addToCart(Number(addBtn.dataset.id));
+                addToCart(addBtn.dataset.id);
                 return;
             }
 
@@ -224,8 +224,9 @@ export class ItemsPage extends BasePage {
     }
 
     createItemCardHTML(item) {
-        const cartEntry = (app.store.cart ?? []).find(ci => Number(ci.itemId) === item.id);
+        const cartEntry = (app.store.cart ?? []).find(ci => String(ci.itemId) === String(item.id));
         const currentQty = cartEntry ? cartEntry.quantity : 0;
+        
         const isSoldOut = item.stock === 0;
         const isStockLimitReached = currentQty >= item.stock;
         const isMaxQtyReached = currentQty >= MAX_QTY;

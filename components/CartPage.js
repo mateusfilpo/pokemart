@@ -6,9 +6,10 @@ import {
   setCartItemQuantity,
   removeFromCart
 } from "../services/Cart.js";
-import { updateItemStock } from "../services/Items.js";
 import { Toast } from "../services/Toast.js";
 import { formatPrice } from "../services/Text.js";
+import API from "../services/API.js";
+import { loadItems } from "../services/Items.js";
 
 export class CartPage extends BasePage {
   constructor() {
@@ -36,49 +37,44 @@ export class CartPage extends BasePage {
       
       if (e.target.closest("#checkout-btn")) {
         const btn = e.target.closest("#checkout-btn");
+        const user = app.store.user;
+
+        if (!user) {
+            Toast.show("Você precisa estar logado para comprar!", "info");
+            app.router.go("/login");
+            return;
+        }
+
         btn.disabled = true;
         btn.textContent = "Processando...";
 
         const cart = app.store.cart;
         
-        for (const cartItem of cart) {
-            const product = app.store.items.find(p => p.id === cartItem.itemId);
-            if (product) {
-                const newStock = Math.max(0, product.stock - cartItem.quantity);
-                await updateItemStock(product.id, newStock);
-            }
-        }
-
-        const user = app.store.user;
-        if (user) {
-            const totalText = this.root.querySelector("#total").textContent;
-            
-            const orderItemsFullData = cart.map(cartItem => {
-                const product = app.store.items.find(p => p.id === cartItem.itemId);
-                return {
-                    id: product.id,
-                    name: product.name,
-                    price: product.price,
-                    image: product.image,
+        try {
+            const checkoutPayload = {
+                userId: user.id,
+                items: cart.map(cartItem => ({
+                    productId: cartItem.itemId,
                     quantity: cartItem.quantity
-                };
-            });
-
-            const agora = new Date();
-
-            const newOrder = {
-                id: agora.getTime(),
-                date: `${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR')}`,
-                total: totalText,
-                items: orderItemsFullData 
+                }))
             };
-            
-            user.orders = [...(user.orders || []), newOrder];
-            app.store.user = user;
-        }
 
-        app.store.cart = [];
-        app.router.go("/success");
+            await API.placeOrder(checkoutPayload);
+
+            app.store.cart = [];
+            
+            app.store.items = []; 
+            loadItems(); 
+
+            Toast.show("Pedido finalizado com sucesso!", "success");
+            app.router.go("/success");
+
+        } catch (error) {
+            console.error("Falha ao processar pagamento:", error);
+            Toast.show("Erro ao processar compra. Tente novamente.", "error");
+            btn.disabled = false;
+            btn.textContent = "Finalizar Compra";
+        }
         return;
       }
 
@@ -87,12 +83,13 @@ export class CartPage extends BasePage {
       const row = e.target.closest(".cart-row");
       if (!row) return;
 
-      const id = Number(row.dataset.id);
+      const id = String(row.dataset.id);
+      
       if (e.target.closest(".plus")) return incrementCartItem(id);
       if (e.target.closest(".minus")) return decrementCartItem(id);
       
       if (e.target.closest(".trash")) {
-        const item = app.store.items.find(i => i.id === id);
+        const item = app.store.items.find(i => String(i.id) === id);
         const itemName = item ? item.name : "Item";
         
         removeFromCart(id);
@@ -129,10 +126,10 @@ export class CartPage extends BasePage {
   }
 
   handleQuantityUpdate(input) {
-    const id = Number(input.closest(".cart-row").dataset.id);
+    const id = String(input.closest(".cart-row").dataset.id);
     let qty = parseInt(input.value);
     
-    const product = app.store.items.find(i => i.id === id);
+    const product = app.store.items.find(i => String(i.id) === id);
     const stockLimit = product ? product.stock : MAX_QTY;
     const realMax = Math.min(stockLimit, MAX_QTY);
 
@@ -169,7 +166,7 @@ export class CartPage extends BasePage {
       return;
     }
 
-    if (!app.store.items) {
+    if (!app.store.items || app.store.items === "ERROR" || app.store.items.length === 0) {
       this.renderSkeletons(cart.length, list, empty, summary, checkoutBtn);
       return;
     }
@@ -270,7 +267,7 @@ export class CartPage extends BasePage {
     return `
       <li class="cart-row ${isUnavailable ? 'unavailable' : ''}" data-id="${item.id}" style="${isUnavailable ? 'opacity: 0.8; background: #fff1f2; border: 1px solid #fca5a5;' : ''}">
         <div class="row-left">
-            <a href="#" class="thumb item-link">
+            <a href="/item/${item.id}" data-link class="thumb item-link">
                 <img src="${item.image}" alt="${item.name}" style="${isUnavailable ? 'filter: grayscale(1);' : ''}">
             </a>
             <div class="meta">

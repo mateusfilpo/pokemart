@@ -67,29 +67,8 @@ export class ItemDetailsPage extends BasePage {
     const $ = (selector) => this.root.querySelector(selector);
     const card = $(".card");
     
-    if (card && card.classList.contains("skeleton-card") && this.originalCardContent) {
-        card.innerHTML = this.originalCardContent;
-        card.classList.remove("skeleton-card");
-        
-        $("#add-btn").onclick = (e) => {
-            e.stopPropagation();
-            if (item.stock > 0) {
-                addToCart(item.id);
-            }
-        };
-
-        $(".back-link").onclick = (e) => {
-            e.preventDefault();
-            if (document.referrer.includes(window.location.host) || history.length > 1) {
-                history.back();
-            } else {
-                window.app.router.go("/");
-            }
-        };
-    }
-    
     const updateButtonState = () => {
-        const cartEntry = (app.store.cart ?? []).find(ci => Number(ci.itemId) === item.id);
+        const cartEntry = (app.store.cart ?? []).find(ci => String(ci.itemId) === String(item.id));
         const currentQty = cartEntry ? cartEntry.quantity : 0;
         
         const isSoldOut = item.stock === 0;
@@ -125,6 +104,27 @@ export class ItemDetailsPage extends BasePage {
         }
     };
 
+    if (card && card.classList.contains("skeleton-card") && this.originalCardContent) {
+        card.innerHTML = this.originalCardContent;
+        card.classList.remove("skeleton-card");
+        
+        $("#add-btn").onclick = (e) => {
+            e.stopPropagation();
+            if (item.stock > 0) {
+                addToCart(item.id); 
+            }
+        };
+
+        $(".back-link").onclick = (e) => {
+            e.preventDefault();
+            if (document.referrer.includes(window.location.host) || history.length > 1) {
+                history.back();
+            } else {
+                window.app.router.go("/");
+            }
+        };
+    }
+    
     $("#item-image").src = item.image;
     $("#item-image").alt = item.name;
     $("#item-name").textContent = item.name;

@@ -1,9 +1,11 @@
 import { BasePage } from "./BasePage.js";
 import { formatPrice } from "../services/Text.js";
+import API from "../services/API.js";
 
 export class OrdersPage extends BasePage {
     constructor() {
         super();
+        this.orders = [];
     }
 
     async connectedCallback() {
@@ -17,17 +19,16 @@ export class OrdersPage extends BasePage {
         await this.loadInfrastructure("/components/OrdersPage.css", "orders-page-template");
 
         try {
-            const orders = user.orders || [];
-            if (orders.length > 0) {
-                this.renderSkeletons(orders.length);
-                await new Promise(res => setTimeout(res, 1000)); 
-            }
+            this.renderSkeletons(3); 
+            
+            this.orders = await API.getUserOrders(user.id);
 
             this.setupEventListeners();
             this.render();
 
         } catch (error) {
             console.error("Erro ao processar OrdersPage:", error);
+            this.render();
         }
     }
 
@@ -82,13 +83,10 @@ export class OrdersPage extends BasePage {
 
         const listContainer = this.root.querySelector("#orders-list");
         const emptyContainer = this.root.querySelector("#orders-empty");
-        const user = app.store.user;
 
-        if (!listContainer || !emptyContainer || !user) return;
+        if (!listContainer || !emptyContainer) return;
 
-        const orders = user.orders || [];
-
-        if (orders.length === 0) {
+        if (!this.orders || this.orders.length === 0) {
             listContainer.hidden = true;
             emptyContainer.hidden = false;
             return;
@@ -97,27 +95,36 @@ export class OrdersPage extends BasePage {
         listContainer.hidden = false;
         emptyContainer.hidden = true;
 
-        const reversedOrders = [...orders].reverse();
+        const reversedOrders = [...this.orders].reverse();
         listContainer.innerHTML = reversedOrders.map(order => this.createOrderCardHTML(order)).join("");
     }
 
     createOrderCardHTML(order) {
-        const itemsHtml = order.items.map(item => `
+        const orderDate = new Date(order.createdAt).toLocaleDateString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+
+        const itemsHtml = order.items.map(item => {
+            const product = (app.store.items || []).find(i => String(i.id) === String(item.productId));
+            const imageUrl = product ? product.image : "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png"; // fallback
+
+            return `
             <div class="order-item">
-                <img src="${item.image}" alt="${item.name}" loading="lazy">
+                <img src="${imageUrl}" alt="${item.name}" loading="lazy">
                 <div class="item-meta">
                     <span class="item-name">${item.quantity}x ${item.name}</span>
                     <span class="item-price">₽ ${formatPrice(item.price)} un.</span>
                 </div>
             </div>
-        `).join("");
+            `;
+        }).join("");
 
         return `
-            <article class="order-card" aria-label="Pedido número ${order.id}">
+            <article class="order-card" aria-label="Pedido">
                 <header class="card-header">
                     <div class="header-info">
-                        <span class="order-id">Pedido #${order.id}</span>
-                        <span class="order-date">${order.date}</span>
+                        <span class="order-id">Pedido efetuado em:</span>
+                        <span class="order-date">${orderDate}</span>
                     </div>
                     <div class="order-status">Concluído</div>
                 </header>
@@ -130,7 +137,7 @@ export class OrdersPage extends BasePage {
 
                 <footer class="card-footer">
                     <span class="footer-label">Total Pago:</span>
-                    <span class="footer-total">${order.total}</span>
+                    <span class="footer-total">₽ ${formatPrice(order.totalAmount)}</span> 
                 </footer>
             </article>
         `;

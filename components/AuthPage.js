@@ -4,6 +4,7 @@ import {
     isValidPassword
 } from "../services/Text.js";
 import { Toast } from "../services/Toast.js";
+import API from "../services/API.js";
 
 export class AuthPage extends BasePage {
     constructor() {
@@ -67,13 +68,12 @@ export class AuthPage extends BasePage {
 
     loginAsDemoAdmin() {
         const adminEmail = "admin@admin.com";
-        
         let adminUser = app.store.users.find(u => u.email === adminEmail);
 
         if (!adminUser) {
             adminUser = {
+                id: "sandbox-admin-123",
                 email: adminEmail,
-                password: "AdminPassword123!",
                 name: "Professor Carvalho",
                 cart: [],
                 orders: [],
@@ -87,14 +87,15 @@ export class AuthPage extends BasePage {
         const redirectTarget = sessionStorage.getItem("redirectAfterLogin") || "/";
         sessionStorage.removeItem("redirectAfterLogin");
         
-        Toast.show("Bem-vindo. Acesso Administrativo liberado.", "success");
+        Toast.show("Bem-vindo. Acesso Administrativo liberado (Modo Local).", "success");
         app.router.go(redirectTarget);
     }
 
-    handleAuth() {
+    async handleAuth() {
         const email = this.root.querySelector("#email").value.trim();
         const password = this.root.querySelector("#password").value;
         const errorEl = this.root.querySelector("#error-message");
+        const submitBtn = this.root.querySelector("#auth-submit-btn");
 
         if (errorEl) errorEl.hidden = true;
 
@@ -103,8 +104,12 @@ export class AuthPage extends BasePage {
             return;
         }
 
+        const originalBtnText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Conectando...";
+
         if (this.isLogin) {
-            const userFound = app.store.users.find(u => u.email === email && u.password === password);
+            const userFound = await API.login(email, password);
             
             if (userFound) {
                 app.store.user = userFound;
@@ -118,41 +123,46 @@ export class AuthPage extends BasePage {
         } else {
             if (!isValidEmail(email)) {
                 this.showError("Por favor, insira um e-mail válido.");
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
                 return;
             }
 
             if (!isValidPassword(password)) {
                 this.showError("A senha deve ter 8+ caracteres, maiúsculas, minúsculas, números e símbolos.");
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
                 return;
             }
 
             const confirmPass = this.root.querySelector("#confirm-password").value;
             if (password !== confirmPass) {
                 this.showError("As senhas não coincidem!");
-                return;
-            }
-
-            if (app.store.users.some(u => u.email === email)) {
-                this.showError("Este e-mail já está cadastrado.");
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalBtnText;
                 return;
             }
 
             const newUser = { 
-                email, 
-                password, 
-                name: email.split('@')[0],
-                cart: [],
-                orders: [],
-                role: email === "admin@admin.com" ? "ADMIN" : "TRAINER"
+                email: email, 
+                password: password, 
+                name: email.split('@')[0]
             };
             
-            app.store.users = [...app.store.users, newUser]; 
-            Toast.show("Treinador cadastrado com sucesso! Pode entrar.", "success");
+            const createdUser = await API.register(newUser);
             
-            this.isLogin = true;
-            this.clearInputs();
-            this.render();
+            if (createdUser) {
+                Toast.show("Treinador cadastrado com sucesso no PokéMart! Pode entrar.", "success");
+                this.isLogin = true;
+                this.clearInputs();
+                this.render();
+            } else {
+                this.showError("Erro ao cadastrar. Este e-mail pode já estar em uso.");
+            }
         }
+
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
     }
 
     render() {

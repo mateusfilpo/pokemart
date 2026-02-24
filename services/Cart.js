@@ -3,8 +3,7 @@ import { Toast } from "./Toast.js";
 export const MAX_QTY = 10;
 
 const normalizeId = (id) => {
-    const n = Number(id);
-    return Number.isFinite(n) ? n : null;
+    return id ? String(id) : null; 
 };
 
 const normalizeQty = (qty) => {
@@ -18,14 +17,14 @@ export function addToCart(itemId, qty = 1) {
     
     if (id === null || q === null || q <= 0) return;
 
-    const product = (app.store.items || []).find(i => i.id === id);
+    const product = (app.store.items || []).find(i => String(i.id) === id);
     if (!product) {
         console.error("Tentativa de adicionar item não carregado ou inexistente.");
         return;
     }
 
     const cart = app.store.cart ?? [];
-    const index = cart.findIndex(item => Number(item.itemId) === id);
+    const index = cart.findIndex(item => String(item.itemId) === id);
 
     const currentQty = index > -1 ? cart[index].quantity : 0;
 
@@ -62,7 +61,7 @@ export function removeFromCart(itemId) {
     if (id === null) return;
 
     app.store.cart = (app.store.cart ?? []).filter(
-        item => Number(item.itemId) !== id
+        item => String(item.itemId) !== id
     );
     
     saveCart();
@@ -77,14 +76,14 @@ export function setCartItemQuantity(itemId, qty) {
         return removeFromCart(id);
     }
 
-    const product = (app.store.items || []).find(i => i.id === id);
+    const product = (app.store.items || []).find(i => String(i.id) === id);
     if (!product) return;
 
     const realLimit = Math.min(product.stock, MAX_QTY);
     const finalQty = q > realLimit ? realLimit : q;
 
     app.store.cart = (app.store.cart ?? []).map(item =>
-        Number(item.itemId) === id ? { ...item, quantity: finalQty } : item
+        String(item.itemId) === id ? { ...item, quantity: finalQty } : item
     );
     
     saveCart();
@@ -95,7 +94,7 @@ export const decrementCartItem = (id) => changeQty(id, -1);
 
 function changeQty(itemId, delta) {
     const id = normalizeId(itemId);
-    const item = (app.store.cart ?? []).find(x => Number(x.itemId) === id);
+    const item = (app.store.cart ?? []).find(x => String(x.itemId) === id);
     if (item) {
         setCartItemQuantity(id, item.quantity + delta);
     }
