@@ -192,11 +192,22 @@ export class AdminPage extends BasePage {
             }
 
             this.closeModal();
-            
             await loadItems(app.store.pagination.currentPage, this.itemsPerPage, true, false);
 
         } catch (error) {
-            Toast.show("Erro ao salvar item no banco de dados.", "error");
+            if (error.data) {
+                if (error.data.errors && error.data.errors.length > 0) {
+                    const mensagens = error.data.errors.map(e => e.message).join(" | ");
+                    Toast.show(mensagens, "error");
+                } else if (error.data.error) {
+                    Toast.show(error.data.error, "error");
+                } else {
+                    Toast.show("Erro ao salvar item no banco de dados.", "error");
+                }
+            } else {
+                Toast.show("Erro inesperado de conexão.", "error");
+            }
+            
             submitBtn.disabled = false;
             submitBtn.textContent = "Salvar Item";
         }
@@ -225,7 +236,11 @@ export class AdminPage extends BasePage {
                 this.render();
 
             } catch (error) {
-                Toast.show("Erro ao alterar status do item.", "error");
+                if (error.data && error.data.error) {
+                    Toast.show(error.data.error, "error");
+                } else {
+                    Toast.show("Erro ao alterar status do item.", "error");
+                }
             }
         }
     }

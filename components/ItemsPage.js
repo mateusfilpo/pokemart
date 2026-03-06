@@ -58,11 +58,9 @@ export class ItemsPage extends BasePage {
 
             const catBtn = e.target.closest(".cat");
             if (catBtn) {
-                app.store.selectedCategory = catBtn.dataset.category ?? "";
-                app.store.searchQuery = "";
+                const targetCat = catBtn.dataset.category ?? "";
+                app.store.selectedCategory = app.store.selectedCategory === targetCat ? "" : targetCat;
                 
-                const search = this.root.querySelector("#search-input");
-                if (search) search.value = "";
                 
                 app.store.items = null;
                 
@@ -187,10 +185,17 @@ export class ItemsPage extends BasePage {
         const selected = app.store.selectedCategory ?? "";
         this.updateTitle(selected);
 
-        const totalCount = app.store.pagination.totalElements || 0;
+        const stats = app.store.categoryStats || [];
+        
+        let totalCount = 0;
+        if (stats.length > 0) {
+            totalCount = stats.reduce((soma, stat) => soma + stat.count, 0);
+        } else {
+            totalCount = app.store.pagination.totalElements || 0;
+        }
+
         let html = this.createCategoryItemHTML("", "Todos", totalCount, selected === "");
         
-        const stats = app.store.categoryStats || [];
         html += stats
             .map(stat => this.createCategoryItemHTML(stat.category, stat.category, stat.count, selected === stat.category))
             .join("");

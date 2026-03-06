@@ -35,7 +35,12 @@ export class ItemDetailsPage extends BasePage {
       window.addEventListener("appcartchange", this.onCartChange);
     } catch (error) {
       console.error("Erro na página de detalhes:", error);
-      this.renderError();
+      
+      if (error.data && error.data.error) {
+          this.renderError(error.data.error);
+      } else {
+          this.renderError("Ocorreu um erro ao carregar o item. Tente novamente.");
+      }
     }
   }
 
@@ -148,8 +153,14 @@ export class ItemDetailsPage extends BasePage {
       `;
   }
 
-  renderError() {
-      this.root.innerHTML = `<p>Ocorreu um erro ao carregar o item. Tente novamente.</p>`;
+  renderError(msg) {
+      const container = this.root.querySelector(".details") || this.root;
+      container.innerHTML = `
+          <div class="error-msg">
+              <p>${msg}</p>
+              <a href="/" data-link style="margin-top: 15px; display: inline-block;">Voltar para a loja</a>
+          </div>
+      `;
   }
 }
 

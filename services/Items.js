@@ -59,6 +59,15 @@ export async function updateItemStock(id, newStock) {
 
 export async function getItemById(id) {
     if (!id) return null;
-    await loadItems();
-    return app.store.items.find(item => String(item.id) === String(id)) ?? null;
+
+    if (app.store.items && app.store.items !== "ERROR") {
+        const localItem = app.store.items.find(item => String(item.id) === String(id));
+        if (localItem) return localItem;
+    }
+
+    try {
+        return await API.fetchItemById(id);
+    } catch (error) {
+        throw error; 
+    }
 }
