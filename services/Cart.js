@@ -31,7 +31,20 @@ async function syncWithServer(itemId, quantity) {
             window.dispatchEvent(new CustomEvent("appcartchange"));
             
         } catch (error) {
-            console.warn("Trabalhando offline ou erro de rede no carrinho.");
+            if (error.data && error.data.error) {
+                Toast.show(error.data.error, "warning");
+            } else {
+                Toast.show("Erro ao sincronizar o carrinho. Atualizando informações...", "warning");
+            }
+
+            try {
+                const trueCart = await API.getCart();
+                app.store.cart = trueCart;
+                localStorage.setItem("pokemart-cart", JSON.stringify(app.store.cart));
+                window.dispatchEvent(new CustomEvent("appcartchange"));
+            } catch (fallbackError) {
+                console.error("Não foi possível recuperar o carrinho real do servidor.");
+            }
         }
     }, 400); 
 }

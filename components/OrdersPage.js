@@ -6,6 +6,7 @@ export class OrdersPage extends BasePage {
     constructor() {
         super();
         this.orders = [];
+        this.errorMsg = null;
     }
 
     async connectedCallback() {
@@ -28,6 +29,13 @@ export class OrdersPage extends BasePage {
 
         } catch (error) {
             console.error("Erro ao processar OrdersPage:", error);
+            
+            if (error.data && error.data.error) {
+                this.errorMsg = error.data.error;
+            } else {
+                this.errorMsg = "Não foi possível carregar o teu histórico de pedidos.";
+            }
+            
             this.render();
         }
     }
@@ -87,6 +95,19 @@ export class OrdersPage extends BasePage {
         if (!listContainer || !emptyContainer) return;
 
         listContainer.innerHTML = "";
+
+        if (this.errorMsg) {
+            listContainer.hidden = true;
+            emptyContainer.hidden = false;
+            emptyContainer.innerHTML = `
+                <div style="text-align: center; color: #ef4444; padding: 40px;">
+                    <h3>Ops! Ocorreu um problema.</h3>
+                    <p>${this.errorMsg}</p>
+                    <a href="/" data-link style="display: inline-block; margin-top: 15px;">Voltar à Loja</a>
+                </div>
+            `;
+            return;
+        }
 
         if (!this.orders || this.orders.length === 0) {
             listContainer.hidden = true;

@@ -65,7 +65,12 @@ export class CartPage extends BasePage {
 
         } catch (error) {
             console.error("Falha ao processar pagamento:", error);
-            Toast.show("Erro ao processar compra. Tente novamente.", "error");
+            
+            if (error.data && error.data.error) {
+                Toast.show(error.data.error, "error");
+            } else {
+                Toast.show("Erro ao processar compra. Tente novamente.", "error");
+            }
             
             this.isCheckoutProcessing = false;
             this.render();
