@@ -1,6 +1,12 @@
 import { Toast } from "./Toast.js";
 
-const BASE_URL = "http://localhost:8080/api";
+const hostname = window.location.hostname;
+
+const isLocalhost = hostname === "localhost" || hostname === "127.0.0.1";
+
+const BASE_URL = isLocalhost 
+    ? "http://localhost:8080/api" 
+    : "https://pokemart.filpo.com.br/api";
 
 const getStandardHeaders = () => {
   return { "Content-Type": "application/json" };
