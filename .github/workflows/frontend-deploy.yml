@@ -32,7 +32,7 @@ jobs:
         run: docker build -t pokemart-app:ci .
 
       - name: Scan image para vulnerabilidades (Trivy)
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: pokemart-app:ci
           format: table
