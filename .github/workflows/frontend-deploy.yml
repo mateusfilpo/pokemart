@@ -3,10 +3,60 @@ name: Frontend CI/CD Pipeline
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
+  lint-and-security:
+    name: Lint & Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Lint Dockerfile (Hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+      - name: Validate nginx config syntax
+        run: |
+          CERT_DIR="${{ github.workspace }}/.ci-certs/live/pokemart.filpo.com.br"
+          mkdir -p "$CERT_DIR"
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -keyout "$CERT_DIR/privkey.pem" \
+            -out "$CERT_DIR/fullchain.pem" \
+            -subj "/CN=pokemart.filpo.com.br" 2>/dev/null
+
+          docker run --rm \
+            -v "${{ github.workspace }}/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            -v "${{ github.workspace }}/.ci-certs:/etc/letsencrypt:ro" \
+            nginx:stable-alpine nginx -t
+
+      - name: Build Docker image locally (without push)
+        run: docker build -t pokemart-app:ci .
+
+      - name: Scan image for vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: pokemart-app:ci
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
+
+      - name: Scan repository for secrets (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-and-push:
     name: Build and Push Docker Image
+    needs: lint-and-security
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -30,6 +80,7 @@ jobs:
   deploy:
     name: Deploy to GCP VM
     needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: SSH and Update Container
@@ -40,11 +91,11 @@ jobs:
           key: ${{ secrets.GCP_SSH_KEY }}
           script: |
             cd ~
-            
+
             sudo docker pull ${{ secrets.DOCKER_USERNAME }}/pokemart-app:v1.4.4
-            
+
             sudo docker rm -f pokemart-front || true
-            
+
             sudo docker run -d \
                 --name pokemart-front \
                 --restart unless-stopped \
@@ -52,5 +103,5 @@ jobs:
                 -v /home/mateusfilpo27/data/certbot/conf:/etc/letsencrypt:ro \
                 -v /home/mateusfilpo27/data/certbot/www:/var/www/certbot:ro \
                 ${{ secrets.DOCKER_USERNAME }}/pokemart-app:v1.4.4
-                
+
             sudo docker image prune -f
